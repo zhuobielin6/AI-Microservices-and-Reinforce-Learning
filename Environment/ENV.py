@@ -1,5 +1,5 @@
 import numpy as np
-from ENV_DEF import *
+from Environment.ENV_DEF import *
 
 random.seed(123)
 def initial_state():
@@ -8,18 +8,22 @@ def initial_state():
     rout:NODE_NUM*(MS_NUM+AIMS_NUM)*NODE_NUM
     :return:
     '''
-    deploy_state = np.zeros(shape=(MS_NUM + AIMS_NUM, NODE_NUM))
-    rout_state = np.zeros(shape=(NODE_NUM, MS_NUM + AIMS_NUM, NODE_NUM))
-    CPU = np.zeros(shape=(2, NODE_NUM))
-    GPU = np.zeros(shape=(2, NODE_NUM))
-    Memory = np.zeros(shape=(2, NODE_NUM))
+    deploy_state = np.zeros(shape=(MS_NUM + AIMS_NUM, NODE_NUM))    # 一个规模为微服务*服务节点的矩阵
+    rout_state = np.zeros(shape=(NODE_NUM, MS_NUM + AIMS_NUM, NODE_NUM))    # 在每一个服务器上的每一种微服务，选择部署到另一个服务器上的矩阵
+    CPU = np.zeros(shape=(2, NODE_NUM))     # 二维CPU矩阵，分别表示已使用的CPU资源数和未使用的CPU资源数
+    GPU = np.zeros(shape=(2, NODE_NUM))     # 二维GPU矩阵，分别表示已使用的GPU资源数和未使用的GPU资源数
+    Memory = np.zeros(shape=(2, NODE_NUM))  # 二维内存矩阵，分别表示已使用的内存资源数和未使用的内存资源数
     node_list = []
+
+    ## 随机创建状态
     for i in range(NODE_NUM):
-        edge_node = EDGE_NODE(i)
-        node_list.append(edge_node)
+        edge_node = EDGE_NODE(i)    # 随机创建一个id=i的服务器
+        node_list.append(edge_node) # 添加节点
         CPU[1][i] = edge_node.cpu  # 初始化剩余cpu资源
         GPU[1][i] = edge_node.gpu  # 初始化剩余gpu资源
         Memory[1][i] = edge_node.memory  # 初始化剩余memory资源
+
+    ## 状态拉伸为1维
     deploy_state = np.reshape(deploy_state, (1, (MS_NUM + AIMS_NUM) * NODE_NUM))
     rout_state = np.reshape(rout_state, (1, NODE_NUM * (MS_NUM + AIMS_NUM) * NODE_NUM))
     CPU = np.reshape(CPU, (1, 2 * NODE_NUM))
@@ -29,9 +33,15 @@ def initial_state():
     resource = np.append(resource, Memory)
     state = np.append(deploy_state, rout_state)
     state = np.append(state, resource)
+
     return state
 
 def get_deploy(state):
+    """
+    从状态中提取部署的情况
+    :param state:
+    :return:
+    """
     deploy = state[0:(MS_NUM+AIMS_NUM)*NODE_NUM]
     deploy = np.reshape(deploy, ((MS_NUM+AIMS_NUM), NODE_NUM))
     return deploy
@@ -47,7 +57,8 @@ def get_rout(state):
 
 def get_first_node(users,node_list):
     '''
-    获得服务请求接收节点集
+    获得服务请求接收节点集，选择距离最近的节点作为接受节点
+    返回对每一个用户的接收节点
     :param users:
     :param node_list:
     :return:
