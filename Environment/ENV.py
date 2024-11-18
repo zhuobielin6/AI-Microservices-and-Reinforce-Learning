@@ -11,7 +11,7 @@ def initial_state():
     :return:
     '''
     deploy_state = np.zeros(shape=(MS_NUM + AIMS_NUM, NODE_NUM))
-    rout_state = np.zeros(shape=(NODE_NUM, MS_NUM + AIMS_NUM, NODE_NUM))
+    # rout_state = np.zeros(shape=(NODE_NUM, MS_NUM + AIMS_NUM, NODE_NUM))
     CPU = np.zeros(shape=(2, NODE_NUM))
     GPU = np.zeros(shape=(2, NODE_NUM))
     Memory = np.zeros(shape=(2, NODE_NUM))
@@ -23,14 +23,15 @@ def initial_state():
         GPU[1][i] = edge_node.gpu  # 初始化剩余gpu资源
         Memory[1][i] = edge_node.memory  # 初始化剩余memory资源
     deploy_state = np.reshape(deploy_state, (1, (MS_NUM + AIMS_NUM) * NODE_NUM))
-    rout_state = np.reshape(rout_state, (1, NODE_NUM * (MS_NUM + AIMS_NUM) * NODE_NUM))
+    # rout_state = np.reshape(rout_state, (1, NODE_NUM * (MS_NUM + AIMS_NUM) * NODE_NUM))
     CPU = np.reshape(CPU, (1, 2 * NODE_NUM))
     GPU = np.reshape(GPU, (1, 2 * NODE_NUM))
     Memory = np.reshape(Memory, (1, 2 * NODE_NUM))
     resource = np.append(CPU, GPU)
     resource = np.append(resource, Memory)
-    state = np.append(deploy_state, rout_state)
-    state = np.append(state, resource)
+    # state = np.append(deploy_state, rout_state)
+    # state = np.append(state, resource)
+    state = np.append(deploy_state, resource)
     return state
 
 
