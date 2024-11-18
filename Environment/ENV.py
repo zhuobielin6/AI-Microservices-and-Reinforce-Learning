@@ -35,22 +35,12 @@ def initial_state():
 
 
 def get_deploy(state):
-    """
-    部署情况
-    :param state:
-    :return:
-    """
     deploy = state[0:(MS_NUM + AIMS_NUM) * NODE_NUM]
     deploy = np.reshape(deploy, ((MS_NUM + AIMS_NUM), NODE_NUM))
     return deploy
 
 
 def get_rout(state):
-    """
-    从状态中获取路由方案
-    :param state:
-    :return:
-    """
     rout = []
     for i in range(NODE_NUM):
         rout_node = state[(MS_NUM + AIMS_NUM) * NODE_NUM + i * (MS_NUM + AIMS_NUM) * NODE_NUM
@@ -61,34 +51,23 @@ def get_rout(state):
 
 
 def get_ms_image(ms, aims, users, requests, marke):
-    """
-    返回微服务所需实例数
-    :param ms: 微服务
-    :param aims: AI微服务
-    :param users: 用户列表
-    :param requests: 请求集（字典）
-    :param marke: id标记符集（字典），0表示微服务，1表示AI微服务
-    :return:
-    """
-    # 前MS_NUM个位置存放普通微服务的信息，后AIMS_NUM存放AI微服务的信息
     ms_image = np.zeros(MS_NUM + AIMS_NUM)
     ms_lamda = np.zeros(MS_NUM + AIMS_NUM)
     # request_lamda = get_user_lamda(users)
     # print(request_lamda)
     for user in users:
-        lamda = user.lamda  # 用户的到达率
-        request = requests.get(user)    # 用户的请求链（列表）
-        single_marke = marke.get(user)  # 标记符列表
-        # 将用户的到达率，累计到每一个微服务中
-        for item1, item2 in zip(request, single_marke):  # 打包请求链和标识符
+        lamda = user.lamda
+        request = requests.get(user)
+        single_marke = marke.get(user)
+        for item1, item2 in zip(request, single_marke):
             if item2 == 0:
                 ms_lamda[item1.id] += lamda
             else:
                 ms_lamda[MS_NUM + item1.id] += lamda
-    alpha_list = np.append(get_ms_alpha(ms), get_aims_alpha(aims))  # 这里是一个处理速率列表
+    alpha_list = np.append(get_ms_alpha(ms), get_aims_alpha(aims))
     for i in range(MS_NUM + AIMS_NUM):
-        rho = ms_lamda[i] / alpha_list[i]   # 处理速率=到达率/实例数 ==》实例数=到达率/处理速率
-        ms_image[i] += math.ceil(rho)   # 对处理结果向上取整
+        rho = ms_lamda[i] / alpha_list[i]
+        ms_image[i] += math.ceil(rho)
     return ms_image
 
 
@@ -165,11 +144,11 @@ if __name__ == '__main__':
     print(d)
     print(r)
 
-    ms = ms_initial()   # 微服务列表
-    aims = aims_initial()   # AI微服务列表
+    ms = ms_initial()
+    aims = aims_initial()
     user = user_initial()
     node_list = edge_initial()
-    users, user_list, marke = get_user_request()
+    users, user_list, marke = get_user_request(user)
     print("用户集：", users)
     print("请求集：", user_list)
     print("标记集合", marke)
@@ -192,8 +171,6 @@ if __name__ == '__main__':
             print(i.id, end=' ')
         print(' ')
     ms_image = get_ms_image(ms, aims, users, user_list, marke)
-    print("服务实例数分配情况")
-    print(ms_image)
 
 
 
