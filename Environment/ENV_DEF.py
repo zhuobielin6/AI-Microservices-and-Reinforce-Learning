@@ -149,24 +149,24 @@ def edge_initial():
 
 # ms list
 # list[a1,a2,...]
-def get_ms_alpha():
+def get_ms_alpha(ms_list):
     ms_alpha_list = []
-    for i in range(MS_NUM):
-        ms_alpha_list.append(MS(i).get_alpha())
+    for ms in ms_list:
+        ms_alpha_list.append(ms.get_alpha())
     return ms_alpha_list
 
 # aims list
 # list[a1,a2,...]
-def get_aims_alpha():
+def get_aims_alpha(aims_list):
     aims_alpha_list = []
-    for i in range(AIMS_NUM):
-        aims_alpha_list.append(AIMS(i).get_alpha())
+    for aims in aims_list:
+        aims_alpha_list.append(aims.get_alpha())
     return aims_alpha_list
 
-def get_user_lamda():
+def get_user_lamda(user_list):
     user_lamda_list = []
-    for i in range(USER_NUM):
-        user_lamda_list.append(USER(i).lamda)
+    for user in user_list:
+        user_lamda_list.append(user.lamda)
     return user_lamda_list
 
 def get_user_request():

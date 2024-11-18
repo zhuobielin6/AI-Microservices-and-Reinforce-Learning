@@ -1,29 +1,27 @@
 import numpy as np
-from Environment.ENV_DEF import *
+from ENV_DEF import *
 
 random.seed(123)
+
+
 def initial_state():
     '''
     deploy_state:(MS_NUM+AIMS_NUM)*NODE_NUM
     rout:NODE_NUM*(MS_NUM+AIMS_NUM)*NODE_NUM
     :return:
     '''
-    deploy_state = np.zeros(shape=(MS_NUM + AIMS_NUM, NODE_NUM))    # 一个规模为微服务*服务节点的矩阵
-    rout_state = np.zeros(shape=(NODE_NUM, MS_NUM + AIMS_NUM, NODE_NUM))    # 在每一个服务器上的每一种微服务，选择部署到另一个服务器上的矩阵
-    CPU = np.zeros(shape=(2, NODE_NUM))     # 二维CPU矩阵，分别表示已使用的CPU资源数和未使用的CPU资源数
-    GPU = np.zeros(shape=(2, NODE_NUM))     # 二维GPU矩阵，分别表示已使用的GPU资源数和未使用的GPU资源数
-    Memory = np.zeros(shape=(2, NODE_NUM))  # 二维内存矩阵，分别表示已使用的内存资源数和未使用的内存资源数
+    deploy_state = np.zeros(shape=(MS_NUM + AIMS_NUM, NODE_NUM))
+    rout_state = np.zeros(shape=(NODE_NUM, MS_NUM + AIMS_NUM, NODE_NUM))
+    CPU = np.zeros(shape=(2, NODE_NUM))
+    GPU = np.zeros(shape=(2, NODE_NUM))
+    Memory = np.zeros(shape=(2, NODE_NUM))
     node_list = []
-
-    ## 随机创建状态
     for i in range(NODE_NUM):
-        edge_node = EDGE_NODE(i)    # 随机创建一个id=i的服务器
-        node_list.append(edge_node) # 添加节点
+        edge_node = EDGE_NODE(i)
+        node_list.append(edge_node)
         CPU[1][i] = edge_node.cpu  # 初始化剩余cpu资源
         GPU[1][i] = edge_node.gpu  # 初始化剩余gpu资源
         Memory[1][i] = edge_node.memory  # 初始化剩余memory资源
-
-    ## 状态拉伸为1维
     deploy_state = np.reshape(deploy_state, (1, (MS_NUM + AIMS_NUM) * NODE_NUM))
     rout_state = np.reshape(rout_state, (1, NODE_NUM * (MS_NUM + AIMS_NUM) * NODE_NUM))
     CPU = np.reshape(CPU, (1, 2 * NODE_NUM))
@@ -33,32 +31,70 @@ def initial_state():
     resource = np.append(resource, Memory)
     state = np.append(deploy_state, rout_state)
     state = np.append(state, resource)
-
     return state
+
 
 def get_deploy(state):
     """
-    从状态中提取部署的情况
+    部署情况
     :param state:
     :return:
     """
-    deploy = state[0:(MS_NUM+AIMS_NUM)*NODE_NUM]
-    deploy = np.reshape(deploy, ((MS_NUM+AIMS_NUM), NODE_NUM))
+    deploy = state[0:(MS_NUM + AIMS_NUM) * NODE_NUM]
+    deploy = np.reshape(deploy, ((MS_NUM + AIMS_NUM), NODE_NUM))
     return deploy
 
+
 def get_rout(state):
+    """
+    从状态中获取路由方案
+    :param state:
+    :return:
+    """
     rout = []
     for i in range(NODE_NUM):
-        rout_node = state[(MS_NUM+AIMS_NUM)*NODE_NUM+i*(MS_NUM+AIMS_NUM)*NODE_NUM
-                          :(MS_NUM+AIMS_NUM)*NODE_NUM+(i+1)*(MS_NUM+AIMS_NUM)*NODE_NUM]
-        rout_node = np.reshape(rout_node,((MS_NUM+AIMS_NUM), NODE_NUM))
+        rout_node = state[(MS_NUM + AIMS_NUM) * NODE_NUM + i * (MS_NUM + AIMS_NUM) * NODE_NUM
+                          :(MS_NUM + AIMS_NUM) * NODE_NUM + (i + 1) * (MS_NUM + AIMS_NUM) * NODE_NUM]
+        rout_node = np.reshape(rout_node, ((MS_NUM + AIMS_NUM), NODE_NUM))
         rout.append(rout_node)
     return rout
 
-def get_first_node(users,node_list):
+
+def get_ms_image(ms, aims, users, requests, marke):
+    """
+    返回微服务所需实例数
+    :param ms: 微服务
+    :param aims: AI微服务
+    :param users: 用户列表
+    :param requests: 请求集（字典）
+    :param marke: id标记符集（字典），0表示微服务，1表示AI微服务
+    :return:
+    """
+    # 前MS_NUM个位置存放普通微服务的信息，后AIMS_NUM存放AI微服务的信息
+    ms_image = np.zeros(MS_NUM + AIMS_NUM)
+    ms_lamda = np.zeros(MS_NUM + AIMS_NUM)
+    # request_lamda = get_user_lamda(users)
+    # print(request_lamda)
+    for user in users:
+        lamda = user.lamda  # 用户的到达率
+        request = requests.get(user)    # 用户的请求链（列表）
+        single_marke = marke.get(user)  # 标记符列表
+        # 将用户的到达率，累计到每一个微服务中
+        for item1, item2 in zip(request, single_marke):  # 打包请求链和标识符
+            if item2 == 0:
+                ms_lamda[item1.id] += lamda
+            else:
+                ms_lamda[MS_NUM + item1.id] += lamda
+    alpha_list = np.append(get_ms_alpha(ms), get_aims_alpha(aims))  # 这里是一个处理速率列表
+    for i in range(MS_NUM + AIMS_NUM):
+        rho = ms_lamda[i] / alpha_list[i]   # 处理速率=到达率/实例数 ==》实例数=到达率/处理速率
+        ms_image[i] += math.ceil(rho)   # 对处理结果向上取整
+    return ms_image
+
+
+def get_first_node(users, node_list):
     '''
-    获得服务请求接收节点集，选择距离最近的节点作为接受节点
-    返回对每一个用户的接收节点
+    获得服务请求接收节点集
     :param users:
     :param node_list:
     :return:
@@ -69,15 +105,14 @@ def get_first_node(users,node_list):
         node_idx = 0
         dis = float('inf')
         for item in node_list:
-            dis = min(cal_dis_user_node(user, item),dis)
-            if dis==cal_dis_user_node(user, item):
+            dis = min(cal_dis_user_node(user, item), dis)
+            if dis == cal_dis_user_node(user, item):
                 node_idx = item.id
         node.append(node_idx)
     return node
 
 
-
-def get_ms_node_lamda(state,users,requests,node_list):
+def get_ms_node_lamda(state, users, requests, node_list):
     '''
 
     :param state: 一维向量
@@ -86,8 +121,8 @@ def get_ms_node_lamda(state,users,requests,node_list):
     :param node_list: list
     :return:
     '''
-    ms_node_lamda= []
-    first_node = get_first_node(users,node_list)
+    ms_node_lamda = []
+    first_node = get_first_node(users, node_list)
     deploy = get_deploy(state)
     for ms in range(MS_NUM):
         ms_request = []
@@ -95,7 +130,6 @@ def get_ms_node_lamda(state,users,requests,node_list):
             item
         for node in range(NODE_NUM):
             ms = []
-
 
     return ms_node_lamda
 
@@ -125,49 +159,41 @@ def cal_ms_delay(ms_deploy):
 
 if __name__ == '__main__':
     state = initial_state()
-    d= get_deploy(state)
+    d = get_deploy(state)
     r = get_rout(state)
     print(state)
     print(d)
     print(r)
 
-    user,user_list, _= get_user_request()
+    ms = ms_initial()   # 微服务列表
+    aims = aims_initial()   # AI微服务列表
+    user = user_initial()
     node_list = edge_initial()
-    print("用户集：",user)
-    print("请求集：",user_list)
-    for item in user:
-        print("用户",item.id,"的位置：",item.x, item.y)
+    users, user_list, marke = get_user_request()
+    print("用户集：", users)
+    print("请求集：", user_list)
+    print("标记集合", marke)
+    for item in users:
+        print("用户", item.id, "的位置：", item.x, item.y)
     for item in node_list:
-        print("服务器",item.id,"的位置：",item.x, item.y)
-    for item1 in user:
+        print("服务器", item.id, "的位置：", item.x, item.y)
+    for item1 in users:
         for item2 in node_list:
-            print("用户",item1.id,"到服务器",item2.id,"之间的距离：",cal_dis_user_node(item1, item2))
-    print(get_first_node(user,node_list))
-    msalpha = get_ms_alpha()
-    aimsalpha = get_aims_alpha()
-    servicelamda = get_user_lamda()
+            print("用户", item1.id, "到服务器", item2.id, "之间的距离：", cal_dis_user_node(item1, item2))
+    print(get_first_node(users, node_list))
+    msalpha = get_ms_alpha(ms)
+    aimsalpha = get_aims_alpha(aims)
+    servicelamda = get_user_lamda(user)
     print("基础微服务的处理速率：", msalpha)
     print("AI微服务的处理速率：", aimsalpha)
     print("服务请求的到达率：", servicelamda)
+    for item in users:
+        for i in user_list.get(item):
+            print(i.id, end=' ')
+        print(' ')
+    ms_image = get_ms_image(ms, aims, users, user_list, marke)
+    print("服务实例数分配情况")
+    print(ms_image)
 
-    '''
-    输出用户与服务器之间的位置关系图
-    '''
-    x_list = []
-    y_list = []
-    for i in node_list:
-        x, y = i.get_location()
-        x_list.append(x)
-        y_list.append(y)
-    plt.scatter(x_list,y_list,c='red',marker='*')
-    user_x_list = []
-    user_y_list = []
-    for i in user_list:
-        x, y = i.get_location()
-        user_x_list.append(x)
-        user_y_list.append(y)
-    plt.scatter(user_x_list, user_y_list,c='blue')
-    plt.tight_layout()
-    plt.show()
 
 
