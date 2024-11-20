@@ -1,5 +1,5 @@
 import numpy as np
-from ENV_DEF import *
+from Environment.ENV_DEF import *
 
 random.seed(123)
 
@@ -12,6 +12,7 @@ def initial_state():
     '''
     deploy_state = np.zeros(shape=(MS_NUM + AIMS_NUM, NODE_NUM))
     # rout_state = np.zeros(shape=(NODE_NUM, MS_NUM + AIMS_NUM, NODE_NUM))
+    # 每一个服务器的已用资源和剩余资源的情况，资源有：CPU、GPU、内存
     CPU = np.zeros(shape=(2, NODE_NUM))
     GPU = np.zeros(shape=(2, NODE_NUM))
     Memory = np.zeros(shape=(2, NODE_NUM))
@@ -36,10 +37,24 @@ def initial_state():
 
 
 def get_deploy(state):
+    """
+    从状态中获取部署情况
+    :param state:
+    :return:
+    """
     deploy = state[0:(MS_NUM + AIMS_NUM) * NODE_NUM]
     deploy = np.reshape(deploy, ((MS_NUM + AIMS_NUM), NODE_NUM))
     return deploy
 
+def get_resource(state):
+    """
+    从状态中获取资源分配情况
+    :param state: state
+    :return:
+    """
+    resource = state[(MS_NUM + AIMS_NUM) * NODE_NUM:]
+
+    return resource
 
 def get_rout(state):
     rout = []
@@ -140,10 +155,12 @@ def cal_ms_delay(ms_deploy):
 if __name__ == '__main__':
     state = initial_state()
     d = get_deploy(state)
-    r = get_rout(state)
-    print(state)
-    print(d)
-    print(r)
+    resource = get_resource(state)
+    # r = get_rout(state)
+    print("状态：\n",state)
+    print("状态中的部署方案:\n", d)
+    print("状态中的资源情况:\n", resource)
+    # print(r)
 
     ms = ms_initial()
     aims = aims_initial()
@@ -172,6 +189,44 @@ if __name__ == '__main__':
             print(i.id, end=' ')
         print(' ')
     ms_image = get_ms_image(ms, aims, users, user_list, marke)
+    print(ms_image)
 
-
-
+"""
+输出实例：
+状态：
+ [  0.   0.   0.   0.   0.   0.   0.   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.  21.  21.   0.   0.   2.   4.   0.   0. 313. 371.]
+状态中的部署方案:
+ [[0. 0.]
+ [0. 0.]
+ [0. 0.]
+ [0. 0.]
+ [0. 0.]
+ [0. 0.]
+ [0. 0.]
+ [0. 0.]]
+状态中的资源情况:
+ [  0.   0.  21.  21.   0.   0.   2.   4.   0.   0. 313. 371.]
+用户集： [<Environment.ENV_DEF.USER object at 0x0000025D98E7B110>, <Environment.ENV_DEF.USER object at 0x0000025D9A19AA20>, <Environment.ENV_DEF.USER object at 0x0000025D9A1988F0>]
+请求集： {<Environment.ENV_DEF.USER object at 0x0000025D98E7B110>: [<Environment.ENV_DEF.MS object at 0x0000025D9A19AAE0>, <Environment.ENV_DEF.MS object at 0x0000025D9A19AB10>, <Environment.ENV_DEF.AIMS object at 0x0000025D9A19ACF0>, <Environment.ENV_DEF.AIMS object at 0x0000025D9A19AC30>], <Environment.ENV_DEF.USER object at 0x0000025D9A19AA20>: [<Environment.ENV_DEF.MS object at 0x0000025D9A19A960>, <Environment.ENV_DEF.MS object at 0x0000025D9A19AAB0>, <Environment.ENV_DEF.MS object at 0x0000025D9A19AD20>], <Environment.ENV_DEF.USER object at 0x0000025D9A1988F0>: [<Environment.ENV_DEF.MS object at 0x0000025D9A19ADB0>, <Environment.ENV_DEF.MS object at 0x0000025D9A19A9C0>]}
+标记集合 {<Environment.ENV_DEF.USER object at 0x0000025D98E7B110>: [0, 0, 1, 1], <Environment.ENV_DEF.USER object at 0x0000025D9A19AA20>: [0, 0, 0], <Environment.ENV_DEF.USER object at 0x0000025D9A1988F0>: [0, 0]}
+用户 0 的位置： 43.770227854494614 43.063758740878164
+用户 1 的位置： 39.798255789234496 83.78376441951345
+用户 2 的位置： 51.51932372339469 80.1496591292033
+服务器 0 的位置： 28.617622359950026 56.5341515714332
+服务器 1 的位置： 11.129328279505911 73.57647855696638
+用户 0 到服务器 0 之间的距离： 20.27444046780999
+用户 0 到服务器 1 之间的距离： 44.6817009036093
+用户 1 到服务器 0 之间的距离： 29.454167179709792
+用户 1 到服务器 1 之间的距离： 30.431826912589813
+用户 2 到服务器 0 之间的距离： 32.896506236247944
+用户 2 到服务器 1 之间的距离： 40.92136892618072
+[0, 0, 0]
+基础微服务的处理速率： [3, 2, 4, 2, 3]
+AI微服务的处理速率： [1.2574850299401201, 0.9813084112149534, 1.47887323943662]
+服务请求的到达率： [3, 6, 5]
+0 3 0 2  
+0 1 4  
+0 4  
+[5. 3. 0. 2. 4. 3. 0. 3.]
+"""

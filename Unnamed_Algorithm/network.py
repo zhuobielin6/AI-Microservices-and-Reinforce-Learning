@@ -1,8 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
+
 from Environment.ENV import *
 
+ITERATION_NUM = 10    # 训练轮数
+GAMMA = 0.95            # 衰减率[0-1]
+ACTOR_LR = 0.0001       # actor网络的学习率
+CRITIC_LR = 0.0001      # critic网络的学习率
+MA_AIMS_NUM = MS_NUM + AIMS_NUM # 总的服务数
 class Actor(nn.Module):
     def __init__(self, ma_aims_num, node_num):
         super(Actor, self).__init__()
@@ -10,7 +17,7 @@ class Actor(nn.Module):
         self.node_num = node_num
 
         # 输入维度规模
-        input_size = ma_aims_num * node_num + ma_aims_num * node_num ** 2 + 3 * 2 * node_num
+        input_size = ma_aims_num * node_num + 3 * 2 * node_num
         # 输出维度
         output_size = ma_aims_num * node_num
 
@@ -59,7 +66,7 @@ class Critic(nn.Module):
         self.node_num = node_num
 
         # 输入维度
-        input_size = ma_aims_num * node_num + ma_aims_num * node_num ** 2 + 3 * 2 * node_num
+        input_size = ma_aims_num * node_num + 3 * 2 * node_num + ma_aims_num * node_num
 
         # LSTM层
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=128, num_layers=1, batch_first=True)
@@ -72,15 +79,28 @@ class Critic(nn.Module):
         nn.init.xavier_uniform_(self.fc1.weight)
         nn.init.xavier_uniform_(self.fc2.weight)
 
-    def forward(self, inputs):
+    def flatter(self, state, action):
+        """
+        将状态和动作合并，并且一维化
+        :param state: state
+        :param action: action
+        :return:
+        """
         # 转化输入为torch.Tensor对象
-        if not isinstance(inputs, torch.Tensor):
-            x = torch.tensor(inputs, dtype=torch.float32)
-        else:
-            x = inputs
+        if not isinstance(state, torch.Tensor):
+            state = torch.tensor(state, dtype=torch.float32)
+        if not isinstance(action, torch.Tensor):
+            action = torch.tensor(action, dtype=torch.float32)
+        # 改变形状
+        action = action.view(-1)
+        return torch.cat((state, action), dim=0)
+
+    def forward(self, state, action):
+
+        inputs = self.flatter(state, action)
 
         # 输入需要增加时间步维度和批量维度，形状变为 (batch_size=1, seq_len=1, input_size)
-        x = x.unsqueeze(0).unsqueeze(0)
+        x = inputs.unsqueeze(0).unsqueeze(0)
 
         # LSTM 前向传播
         lstm_out, _ = self.lstm(x)  # 输出形状为 (batch_size=1, seq_len=1, hidden_size=128)
@@ -93,9 +113,30 @@ class Critic(nn.Module):
         return value
 
 
+class Agent:
+    # 模型
+    actor = None
+    critic = None
+
+    def __init__(self):
+        # 模型初始化
+        self.actor = Actor(ma_aims_num=MS_NUM + AIMS_NUM, node_num=NODE_NUM)
+        self.critic = Critic(ma_aims_num=MS_NUM + AIMS_NUM, node_num=NODE_NUM)
+
+    def run(self):
+        """
+        按照全部部署完一次，算作迭代一次
+        :return:
+        """
+        # 算法执行
+        actor_optimizer = optim.Adam(self.actor.parameters(), lr=ACTOR_LR)
+        critic_optimizer = optim.Adam(self.critic.parameters(), lr=CRITIC_LR)
+
+        # 迭代训练
+
+
 # 示例代码
 if __name__ == "__main__":
-    MA_AIMS_NUM = MS_NUM + AIMS_NUM
 
     # 输入数据示例
     example_input = initial_state()  # 创建一个输入数据
@@ -108,7 +149,7 @@ if __name__ == "__main__":
 
     # 前向传播
     action_probabilities = actor(example_input)
-    action_value = critic(example_input)
+    action_value = critic(example_input, action_probabilities)
 
     print("actor网络的行动输入如下所示(Actor Output):")
     print(action_probabilities)
@@ -116,16 +157,19 @@ if __name__ == "__main__":
     print(action_value)
 """
 以下为一个输出示例：
+输入状态数据如下
+[  0.   0.   0.   0.   0.   0.   0.   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.  21.  21.   0.   0.   2.   4.   0.   0. 313. 371.]
 actor网络的行动输入如下所示(Actor Output):
-tensor([[0.4647, 0.5353],
-        [0.4336, 0.5664],
-        [0.5657, 0.4343],
-        [0.5281, 0.4719],
-        [0.4779, 0.5221],
-        [0.4355, 0.5645],
-        [0.5096, 0.4904],
-        [0.4376, 0.5624]], grad_fn=<SoftmaxBackward0>)
+tensor([[0.7320, 0.2680],
+        [0.5053, 0.4947],
+        [0.5723, 0.4277],
+        [0.5072, 0.4928],
+        [0.5295, 0.4705],
+        [0.5306, 0.4694],
+        [0.3449, 0.6551],
+        [0.4054, 0.5946]], grad_fn=<SoftmaxBackward0>)
 
 critic网络对该行动给出的评价 (Critic Output):
-tensor([0.3287], grad_fn=<ViewBackward0>)
+tensor([0.4896], grad_fn=<ViewBackward0>)
 """
