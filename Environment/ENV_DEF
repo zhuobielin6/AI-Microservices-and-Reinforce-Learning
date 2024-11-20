@@ -26,6 +26,9 @@ class MS:
     def get_cpu(self):
         return self.cpu
 
+    def get_gpu(self):  # 普通微服务没有光gpu需求
+        return 0
+
     def get_memory(self):
         return self.memory
 
@@ -98,6 +101,10 @@ class USER:
     def get_location(self):
         return  self.x, self.y
     def get_request(self):
+        """
+        用户会随机发出含有2-4个普通微服务和0-3个AI微服务的请求链
+        :return:请求链，和用于判断微服务类型的标识符（0：普通微服务，1：AI微服务）
+        """
         request_service = []
         request_service_mark = []
         ms_list = ms_initial()

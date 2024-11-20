@@ -1,8 +1,7 @@
 """
 该脚本用于实现微服务的环境交互工作
 """
-from Environment.ENV import *
-from Unnamed_Algorithm.network import *
+from Unnamed_Algorithm.Network import *
 
 torch.manual_seed(0)  # 随机数种子
 PUNISHMENT_DEPLOY_FAIL = -10  # 部署失败的惩罚
@@ -36,14 +35,14 @@ class Environment_Interaction:
 
         # 需要消耗的资源情况
         cpu = self.ms_aims[index].get_cpu()
-        memory = self.ms_aims[index].get_memory()
         gpu = self.ms_aims[index].get_gpu()
+        memory = self.ms_aims[index].get_memory()
 
         # 当前的资源状况
         # print(resource)
         now_cpu = resource[NODE_NUM: NODE_NUM * 2][action]
-        now_memory = resource[NODE_NUM * 5:][action]
         now_gpu = resource[NODE_NUM * 3: NODE_NUM * 4][action]
+        now_memory = resource[NODE_NUM * 5:][action]
 
         if now_cpu < cpu or now_memory < memory or now_gpu < gpu:
             print(
@@ -57,14 +56,14 @@ class Environment_Interaction:
         deploy[index][action] += 1
         ## 配平相应的资源
         # cpu分配
-        resource[NODE_NUM: NODE_NUM * 2][action] -= 1
-        resource[:NODE_NUM][action] += 1
+        resource[NODE_NUM: NODE_NUM * 2][action] -= cpu
+        resource[:NODE_NUM][action] += cpu
         # gpu分配
-        resource[NODE_NUM * 3: NODE_NUM * 4][action] -= 1
-        resource[NODE_NUM * 2: NODE_NUM * 3][action] += 1
+        resource[NODE_NUM * 3: NODE_NUM * 4][action] -= gpu
+        resource[NODE_NUM * 2: NODE_NUM * 3][action] += gpu
         # 内存分配
-        resource[NODE_NUM * 5:][action] -= 1
-        resource[NODE_NUM * 4: NODE_NUM * 5][action] += 1
+        resource[NODE_NUM * 5:][action] -= memory
+        resource[NODE_NUM * 4: NODE_NUM * 5][action] += memory
 
         return True
 
@@ -73,13 +72,14 @@ class Environment_Interaction:
         根据当前状态和行动列表执行下一步行动得到新的状态
         :param state:
         :param action_probabilities:
-        :return:
+        :return:部署成功返回新状态，部署失败返回 -1，部署结束返回 0
         """
         ## 找到要部署的服务
         index = self.option_ms()
         if index == -1:
             print("已部署完成")
-            return None
+            return 0
+
         print("待分配实例数情况：", self.ms_image)
         print(f"选择第{index}个服务进行部署")
 
@@ -93,8 +93,9 @@ class Environment_Interaction:
         # 分配失败
         if not self.allocate_resources(index, next_state, action):
             print("分配失败")
+            return -1
 
-        # 分配成功，返回下一个状态
+        # 分配成功，返回下一个状态，失败返回的状态和原来一样
         return next_state
 
     def get_reward(self):
@@ -122,6 +123,22 @@ class Environment_Interaction:
         # 初始化服务
         self.ms_aims = ms + aims
 
+def environment_interaction_ms_initial():
+    """
+    创造一个环境交互的初始化对象
+    :return: None
+    """
+    # 制作一个待分配实例数
+    ms = ms_initial()
+    aims = aims_initial()
+    user = user_initial()
+    node_list = edge_initial()
+    users, user_list, marke = get_user_request(user)
+    ms_image = get_ms_image(ms, aims, users, user_list, marke)
+
+    # 初始化环境
+    env = Environment_Interaction(ms_image, ms, aims)
+    return env
 
 if __name__ == '__main__':
     # 制作一个待分配实例数
